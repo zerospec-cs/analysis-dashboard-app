@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>給油配送 分析ダッシュボード</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{--bg:#0d0f14;--sf:#161922;--sf2:#1e2330;--bd:#2a3045;--tx:#e8eaf0;--tx2:#8892a4;--tx3:#4a5568;--curr:#e84040;--cdemo:#f5b942;--prev:#4f9cf9;--pdemo:#a3c4f0;--grn:#10b981;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
+
+/* ═══ AUTH SCREEN ═══ */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.auth-card{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:48px 40px;max-width:400px;width:100%;text-align:center;}
+.auth-logo{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.12em;color:var(--curr);background:rgba(232,64,64,.1);border:1px solid rgba(232,64,64,.3);padding:3px 9px;border-radius:4px;display:inline-block;margin-bottom:24px;}
+.auth-title{font-size:20px;font-weight:500;margin-bottom:8px;}
+.auth-sub{font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:32px;}
+.auth-divider{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--bd);}
+.auth-divider span{font-size:11px;color:var(--tx3);}
+.auth-domain{font-size:11px;color:var(--tx3);margin-top:16px;}
+.auth-domain span{color:var(--curr);}
+.auth-error{background:rgba(232,64,64,.08);border:1px solid rgba(232,64,64,.3);border-radius:8px;padding:12px 16px;font-size:12px;color:#ff6b6b;margin-top:16px;display:none;text-align:left;line-height:1.6;}
+.google-signin-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px 20px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;transition:box-shadow .2s,background .2s;font-family:'Noto Sans JP',sans-serif;}
+.google-signin-btn:hover{background:#f8f9fa;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+
+/* ═══ HEADER ═══ */
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--bd);background:var(--sf);position:sticky;top:0;z-index:200;}
+.header-left{display:flex;align-items:center;gap:12px;}
+.logo{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.12em;color:var(--curr);background:rgba(232,64,64,.1);border:1px solid rgba(232,64,64,.3);padding:3px 9px;border-radius:4px;}
+.header-title{font-size:14px;font-weight:500;}
+.header-right{display:flex;align-items:center;gap:12px;}
+.user-badge{display:flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid var(--bd);border-radius:20px;background:var(--sf2);}
+.user-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;}
+.user-avatar-placeholder{width:22px;height:22px;border-radius:50%;background:var(--curr);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
+.user-name{font-size:11px;color:var(--tx2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btn-logout{font-size:11px;color:var(--tx3);background:none;border:none;cursor:pointer;padding:2px 4px;transition:color .15s;}
+.btn-logout:hover{color:var(--curr);}
+
+/* ═══ UPLOAD ═══ */
+#upload-screen{max-width:640px;margin:60px auto;padding:0 24px;display:none;}
+.upload-title{font-size:20px;font-weight:500;margin-bottom:6px;}
+.upload-sub{font-size:12px;color:var(--tx2);margin-bottom:36px;line-height:1.7;}
+.upload-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
+.upload-card{background:var(--sf);border:1.5px dashed var(--bd);border-radius:12px;padding:22px 18px;cursor:pointer;transition:all .2s;position:relative;text-align:left;}
+.upload-card:hover{border-color:var(--curr);background:rgba(232,64,64,.04);}
+.upload-card.loaded{border-style:solid;border-color:var(--grn);background:rgba(16,185,129,.05);}
+.upload-card input{display:none;}
+.uc-num{font-family:'DM Mono',monospace;font-size:10px;color:var(--curr);margin-bottom:7px;letter-spacing:.1em;}
+.uc-title{font-size:13px;font-weight:500;margin-bottom:5px;}
+.uc-desc{font-size:11px;color:var(--tx2);line-height:1.6;}
+.uc-status{font-size:11px;margin-top:10px;}
+.uc-wait{color:var(--tx3);}
+.uc-ok{color:var(--grn);}
+.uc-err{color:var(--curr);}
+.uc-check{position:absolute;top:10px;right:10px;width:18px;height:18px;background:var(--grn);border-radius:50%;display:none;align-items:center;justify-content:center;font-size:10px;}
+.upload-card.loaded .uc-check{display:flex;}
+.btn-run{background:var(--curr);color:#fff;border:none;padding:13px 36px;border-radius:8px;font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .2s;letter-spacing:.04em;}
+.btn-run:disabled{opacity:.3;cursor:not-allowed;}
+.btn-run:hover:not(:disabled){opacity:.85;}
+.demo-btn{margin-top:10px;background:none;border:1px solid var(--bd);color:var(--tx2);padding:8px 20px;border-radius:6px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:12px;}
+
+/* ═══ PAGE TABS ═══ */
+#page-tabs{display:flex;gap:2px;padding:12px 28px 0;background:var(--sf);border-bottom:1px solid var(--bd);overflow-x:auto;}
+.page-tab{padding:8px 18px;border-radius:6px 6px 0 0;border:1px solid transparent;background:none;color:var(--tx2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s;border-bottom:none;}
+.page-tab:hover{color:var(--tx);background:var(--sf2);}
+.page-tab.active{background:var(--bg);color:var(--tx);border-color:var(--bd);border-bottom-color:var(--bg);}
+
+/* ═══ DASHBOARD ═══ */
+#dashboard{display:none;}
+.dash-content{padding:24px 28px;}
+
+/* ═══ COMMON ═══ */
+.section-label{font-size:11px;color:var(--tx2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;margin-top:22px;}
+.up{color:var(--grn)!important;}.down{color:#ef4444!important;}
+.btn{padding:5px 12px;border-radius:5px;border:1px solid var(--bd);background:var(--sf);color:var(--tx2);font-family:'Noto Sans JP',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;}
+.btn:hover{border-color:var(--tx2);color:var(--tx);}
+.btn.on{background:var(--sf2);border-color:#6b7280;color:var(--tx);}
+.sep{width:1px;height:22px;background:var(--bd);}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:20px;margin-bottom:16px;}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.ct{font-size:13px;font-weight:500;}
+.cs{font-size:11px;color:var(--tx2);margin-top:2px;}
+
+/* ═══ SUMMARY BLOCKS ═══ */
+.summary-block{border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+.sb-header{display:flex;align-items:center;gap:10px;padding:9px 15px;background:var(--sf2);border-bottom:1px solid var(--bd);}
+.sb-tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:3px;}
+.tag-actual{background:rgba(79,156,249,.15);color:#4f9cf9;border:1px solid rgba(79,156,249,.3);}
+.tag-sim{background:rgba(245,185,66,.15);color:#f5b942;border:1px solid rgba(245,185,66,.3);}
+.sb-title{font-size:13px;font-weight:500;}
+.sb-body{display:grid;grid-template-columns:repeat(4,1fr);background:var(--sf);}
+.sb-kpi{padding:13px 16px;border-right:1px solid var(--bd);}
+.sb-kpi:last-child{border-right:none;}
+.kl{font-size:11px;color:var(--tx2);margin-bottom:5px;}
+.kv{font-family:'DM Mono',monospace;font-size:19px;font-weight:500;}
+.ku{font-size:11px;color:var(--tx2);margin-left:3px;}
+.kd{font-size:11px;margin-top:3px;font-family:'DM Mono',monospace;color:var(--tx3);}
+.sb-note{font-size:11px;color:var(--tx3);padding:7px 16px 9px;background:var(--sf);border-top:1px solid var(--bd);line-height:1.6;}
+
+/* ═══ CHART GRIDS ═══ */
+.chart-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:16px;}
+.chart-wrap{position:relative;height:260px;}
+.chart-wrap-lg{position:relative;height:360px;}
+.legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+.li{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--tx2);}
+.ll{width:20px;height:3px;border-radius:2px;}
+.ll.dash{border-top:2px dashed;height:0;background:none;}
+
+/* ═══ TABLES ═══ */
+.tbl-wrap{background:var(--sf);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+.tbl-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:500;}
+table{width:100%;border-collapse:collapse;}
+th{padding:8px 12px;text-align:right;font-size:11px;font-weight:500;color:var(--tx2);background:var(--sf2);white-space:nowrap;}
+th:first-child{text-align:left;}
+td{padding:10px 12px;text-align:right;font-size:12px;border-top:1px solid var(--bd);white-space:nowrap;font-family:'DM Mono',monospace;}
+td:first-child{text-align:left;font-family:'Noto Sans JP',sans-serif;}
+tr:hover td{background:rgba(79,156,249,.03);}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+
+/* ═══ CONTROLS ═══ */
+.controls{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.cl{font-size:11px;color:var(--tx2);letter-spacing:.08em;text-transform:uppercase;}
+.cg{display:flex;gap:3px;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">ZERO SPEC</div>
+    <div class="auth-title">給油配送 分析ダッシュボード</div>
+    <div class="auth-sub">このツールは社内限定です。<br>会社のGoogleアカウントでログインしてください。</div>
+    <div id="g_id_onload"
+      data-client_id="858573162226-4dou32bf97vp16qk7ietlikivgjhh7qu.apps.googleusercontent.com"
+      data-context="signin"
+      data-ux_mode="popup"
+      data-callback="handleGoogleCredential"
+      data-auto_prompt="false"
+      data-hosted_domain="zero-spec.com">
+    </div>
+    <div class="g_id_signin"
+      data-type="standard"
+      data-shape="rectangular"
+      data-theme="filled_black"
+      data-text="signin_with"
+      data-size="large"
+      data-locale="ja"
+      data-width="320">
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-domain">ログイン可能アカウント: <span>@zero-spec.com</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     HEADER（認証後に表示）
+═══════════════════════════════════════════════════ -->
+<div class="header" id="main-header" style="display:none">
+  <div class="header-left">
+    <div class="header-title">給油配送 分析ダッシュボード</div>
+  </div>
+  <div class="header-right">
+    <div class="user-badge" id="user-badge">
+      <div class="user-avatar-placeholder" id="user-avatar-placeholder"></div>
+      <span class="user-name" id="user-name-display"></span>
+      <button class="btn-logout" onclick="signOut()" title="ログアウト">ログアウト</button>
+    </div>
+    <div id="header-period" style="font-size:11px;color:var(--tx2)"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     UPLOAD SCREEN
+═══════════════════════════════════════════════════ -->
+<div id="upload-screen">
+  <div class="upload-title">ファイルをアップロード</div>
+  <div class="upload-sub">2つのファイルをアップロードして「分析実行」を押すと、グループ・エリア別のダッシュボードを自動生成します。</div>
+  <div class="upload-cards">
+    <label class="upload-card" id="card1">
+      <input type="file" id="file1" accept=".xlsx,.csv" onchange="loadFile(1,this)">
+      <div class="uc-check">✓</div>
+      <div class="uc-num">FILE 01</div>
+      <div class="uc-title">給油情報</div>
+      <div class="uc-desc">顧客番号・配送日・配送量<br>（xlsx / csv）</div>
+      <div class="uc-status uc-wait" id="st1">待機中</div>
+    </label>
+    <label class="upload-card" id="card2">
+      <input type="file" id="file2" accept=".xlsx" onchange="loadFile(2,this)">
+      <div class="uc-check">✓</div>
+      <div class="uc-num">FILE 02</div>
+      <div class="uc-title">顧客情報Excel</div>
+      <div class="uc-desc">「顧客登録」「タンクタイプリスト」<br>シートを含むxlsxファイル</div>
+      <div class="uc-status uc-wait" id="st2">待機中</div>
+    </label>
+  </div>
+  <button class="btn-run" id="btn-run" disabled onclick="runAnalysis()">分析実行</button>
+  <br>
+  <button class="demo-btn" onclick="loadDemo()">デモデータで実行</button>
+</div>
+
+<!-- PAGE TABS -->
+<div id="page-tabs" style="display:none"></div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="dash-content" id="dash-content"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// ★ 設定（ここだけ変更してください）
+// ═══════════════════════════════════════════════════════
+const CONFIG = {
+  clientId:   '858573162226-4dou32bf97vp16qk7ietlikivgjhh7qu.apps.googleusercontent.com',   // ← Google Cloud ConsoleのクライアントIDに差し替え
+  domain:     'zero-spec.com',          // ← 許可するドメイン
+};
+
+// ═══════════════════════════════════════════════════════
+// GOOGLE AUTH
+// ═══════════════════════════════════════════════════════
+let currentUser = null;
+
+// ページ読み込み時：セッション確認
+window.addEventListener('load', () => {
+  const saved = sessionStorage.getItem('auth_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      showMainApp();
+    } catch(e) {
+      sessionStorage.removeItem('auth_user');
+    }
+  }
+});
+
+// GIS コールバック（Googleログイン成功時）
+function handleGoogleCredential(response) {
+  try {
+    const payload = parseJwt(response.credential);
+    const email = payload.email || '';
+    if (!email.endsWith('@' + CONFIG.domain)) {
+      showAuthError('このアカウント（' + email + '）はご利用いただけません。@' + CONFIG.domain + ' のアカウントでログインしてください。');
+      return;
+    }
+    currentUser = {
+      name:    payload.name || email,
+      email:   email,
+      picture: payload.picture || '',
+      initial: (payload.name || email).charAt(0).toUpperCase(),
+    };
+    sessionStorage.setItem('auth_user', JSON.stringify(currentUser));
+    showMainApp();
+  } catch(e) {
+    showAuthError('認証に失敗しました。もう一度お試しください。');
+  }
+}
+
+function parseJwt(token) {
+  const base64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+  return JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
+    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+  ).join('')));
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function showMainApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('main-header').style.display = 'flex';
+  document.getElementById('upload-screen').style.display = 'block';
+
+  if (currentUser) {
+    document.getElementById('user-name-display').textContent = currentUser.name || currentUser.email;
+    const placeholder = document.getElementById('user-avatar-placeholder');
+    if (currentUser.picture) {
+      placeholder.outerHTML = '<img class="user-avatar" src="' + currentUser.picture + '" alt="' + currentUser.name + '" referrerpolicy="no-referrer" id="user-avatar-placeholder">';
+    } else {
+      placeholder.textContent = currentUser.initial;
+    }
+  }
+}
+
+function signOut() {
+  sessionStorage.removeItem('auth_user');
+  currentUser = null;
+  if (window.google && google.accounts) {
+    google.accounts.id.disableAutoSelect();
+  }
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════
+// FILE LOADING
+// ═══════════════════════════════════════════════════════
+const DEFAULT_CUST_SHEET = '顧客登録';
+const DEFAULT_TANK_SHEET = 'タンクタイプリスト';
+let masterWB = null;
+let deliveryRows = null;
+
+function loadFile(n, input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  const st = document.getElementById('st'+n);
+  st.textContent = '読み込み中...'; st.className = 'uc-status';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      if (n === 1) {
+        let data;
+        if (file.name.endsWith('.csv')) {
+          const wb = XLSX.read(new TextDecoder().decode(e.target.result), {type:'string'});
+          data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+        } else {
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+          data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+        }
+        deliveryRows = data;
+        document.getElementById('card1').classList.add('loaded');
+        st.textContent = `✓ ${file.name}（${data.length}行）`; st.className = 'uc-status uc-ok';
+      } else {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+        if (!wb.Sheets[DEFAULT_CUST_SHEET] || !wb.Sheets[DEFAULT_TANK_SHEET])
+          throw new Error(`シート「${DEFAULT_CUST_SHEET}」または「${DEFAULT_TANK_SHEET}」が見つかりません`);
+        masterWB = wb;
+        document.getElementById('card2').classList.add('loaded');
+        st.textContent = `✓ ${file.name}`; st.className = 'uc-status uc-ok';
+      }
+      document.getElementById('btn-run').disabled = !(deliveryRows && masterWB);
+    } catch(err) {
+      st.textContent = `エラー: ${err.message}`; st.className = 'uc-status uc-err';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════
+// DATA ENGINE
+// ═══════════════════════════════════════════════════════
+let APP = {};
+
+function runAnalysis() {
+  const custRows = XLSX.utils.sheet_to_json(masterWB.Sheets[DEFAULT_CUST_SHEET], {defval:''});
+  const tankRows = XLSX.utils.sheet_to_json(masterWB.Sheets[DEFAULT_TANK_SHEET], {defval:''});
+  APP = buildAppData(deliveryRows, custRows, tankRows);
+  renderDashboard();
+}
+
+function buildAppData(delRows, custRows, tankRows) {
+  const tankMap = {};
+  tankRows.forEach(r => {
+    const vals = Object.values(r);
+    if (vals[1] && vals[3]) tankMap[String(vals[1]).trim()] = Number(vals[3]) || 0;
+  });
+
+  const custMap = {};
+  custRows.forEach(r => {
+    const v = Object.values(r);
+    const id = String(v[0]).trim();
+    if (!id || id === '顧客番号') return;
+    const tankType = String(v[10]||'').trim();
+    const hosei = Number(v[24]) || tankMap[tankType] || 0;
+    if (!custMap[id]) {
+      custMap[id] = {
+        group:  String(v[4]||'未登録').trim(),
+        area:   String(v[5]||'未登録').trim(),
+        tank:   tankType,
+        thresh: Number(v[12]) || 0,
+        hosei:  hosei,
+        sensor: String(v[16]||'').includes('センサー') || String(v[17]||'') !== '' ? 'あり' : 'なし',
+      };
+    } else {
+      custMap[id].hosei  += hosei;
+      custMap[id].thresh += Number(v[12]) || 0;
+    }
+  });
+
+  function getSeason(dateVal) {
+    const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+    const m = d.getMonth()+1, y = d.getFullYear();
+    if (m >= 10) return `${y}.10-${String(y+1).slice(-2)}.03期`;
+    if (m <= 3)  return `${y-1}.10-${String(y).slice(-2)}.03期`;
+    return `${y}.04-${String(y).slice(-2)}.09期`;
+  }
+
+  const processed = [];
+  const seen = {};
+
+  delRows.forEach(r => {
+    const v = Object.values(r);
+    const custId = String(v[0]).trim();
+    const dateVal = v[1];
+    const delivQty = Number(v[2]) || 0;
+    if (!custId || !dateVal) return;
+
+    const dateKey = `${custId}_${String(dateVal).slice(0,10)}`;
+    const isDup = seen[dateKey] ? true : false;
+    seen[dateKey] = (seen[dateKey] || 0) + 1;
+
+    const cust = custMap[custId] || {group:'未登録',area:'未登録',tank:'',thresh:0,hosei:0,sensor:'なし'};
+    const hosei = cust.hosei;
+    const thresh = cust.thresh;
+    const ideal = hosei - thresh;
+    const qty = isDup ? 0 : delivQty;
+    const invRate = (hosei > 0 && !isDup && delivQty >= 0) ? 1 - qty/hosei : null;
+    const achRate = (ideal > 0 && !isDup) ? qty/ideal : null;
+
+    processed.push({
+      custId, date: new Date(dateVal), qty,
+      delivCount: isDup ? 0 : 1,
+      season: getSeason(dateVal),
+      group: cust.group, area: cust.area,
+      sensor: cust.sensor, hosei, thresh, ideal,
+      invRate, achRate,
+      isDup, isNeg: delivQty < 0,
+    });
+  });
+
+  function aggregate(rows) {
+    const valid = rows.filter(r => !r.isDup && !r.isNeg && r.invRate !== null && r.invRate >= 0);
+    const deliveries = valid.reduce((s,r) => s + r.delivCount, 0);
+    const totalVol   = valid.reduce((s,r) => s + r.qty, 0);
+    const avgVol     = deliveries > 0 ? totalVol/deliveries : 0;
+    const invRates   = valid.map(r => r.invRate).filter(v => v !== null);
+    const achRates   = valid.map(r => r.achRate).filter(v => v !== null && isFinite(v));
+    const avgInv     = invRates.length > 0 ? invRates.reduce((s,v)=>s+v,0)/invRates.length : 0;
+    const medianAch  = median(achRates);
+    const customers  = new Set(valid.map(r => r.custId)).size;
+    const thresh     = valid.length > 0 ? valid.reduce((s,r)=>s+r.thresh,0)/valid.length : 0;
+    const hosei      = valid.length > 0 ? valid.reduce((s,r)=>s+r.hosei,0)/valid.length : 0;
+    const threshRate = hosei > 0 ? thresh/hosei : 0;
+    const seasons2 = [...new Set(valid.map(r=>r.season))];
+    const days = seasons2.length > 0 ? estimateDays(valid) : 151;
+    const interval = customers > 0 && deliveries > 0 ? customers * days / deliveries : 0;
+    const slope = interval > 0 ? medianAch * threshRate / interval : 0;
+    return {deliveries, totalVol, avgVol, avgInv, medianAch, customers, threshRate, interval, slope, days};
+  }
+
+  function estimateDays(rows) {
+    if (!rows.length) return 151;
+    const dates = rows.map(r => r.date.getTime());
+    return Math.round((Math.max(...dates) - Math.min(...dates)) / 86400000) + 1;
+  }
+
+  function median(arr) {
+    if (!arr.length) return 0;
+    const s = [...arr].sort((a,b)=>a-b);
+    const m = Math.floor(s.length/2);
+    return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+  }
+
+  const HIST_EDGES = [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 99];
+  function histBins(rows) {
+    const valid = rows.filter(r => !r.isDup && !r.isNeg && r.invRate >= 0 && r.achRate !== null && isFinite(r.achRate));
+    const counts = new Array(10).fill(0);
+    valid.forEach(r => {
+      const idx = HIST_EDGES.findIndex((e,i) => r.achRate < HIST_EDGES[i+1]);
+      if (idx >= 0 && idx < 10) counts[idx]++;
+    });
+    return counts;
+  }
+
+  const seasons = [...new Set(processed.map(r=>r.season))].sort();
+  const currSeason = seasons[seasons.length-1];
+  const prevSeason = seasons[seasons.length-2] || seasons[0];
+
+  const tabs = [
+    {id:'全社', label:'全社', filterFn: r => true},
+    ...new Set(processed.map(r=>r.group)).values()
+  ].map(g => typeof g === 'string' ? {id:g, label:g, filterFn: r=>r.group===g || g==='全社'} : g);
+
+  const areaTabs = [...new Set(processed.map(r=>r.area))].map(a => ({
+    id:'area_'+a, label:a, filterFn: r=>r.area===a
+  }));
+  const allTabs = [tabs[0], ...tabs.slice(1), ...areaTabs];
+
+  const tabData = {};
+  allTabs.forEach(tab => {
+    const filterFn = tab.filterFn;
+    const curr = processed.filter(r => r.season === currSeason && filterFn(r));
+    const prev = processed.filter(r => r.season === prevSeason && filterFn(r));
+    const currOn  = curr.filter(r=>r.sensor==='あり');
+    const currOff = curr.filter(r=>r.sensor==='なし');
+    const prevOn  = prev.filter(r=>r.sensor==='あり');
+    const prevOff = prev.filter(r=>r.sensor==='なし');
+
+    const monthKeys = ['10','11','12','01','02'];
+    const monthLabels = {'10':'10月','11':'11月','12':'12月','01':'1月','02':'2月'};
+    const monthData = {};
+    monthKeys.forEach(mk => {
+      const cm = curr.filter(r => String(r.date.getMonth()+1).padStart(2,'0') === mk || (mk==='01'&&r.date.getMonth()===0) || (mk==='02'&&r.date.getMonth()===1) || (mk==='10'&&r.date.getMonth()===9) || (mk==='11'&&r.date.getMonth()===10) || (mk==='12'&&r.date.getMonth()===11));
+      const pm = prev.filter(r => {
+        const mo = String(r.date.getMonth()+1).padStart(2,'0');
+        return mo === mk;
+      });
+      monthData[mk] = {label: monthLabels[mk], curr: aggregate(cm), prev: aggregate(pm)};
+    });
+    monthData['all'] = {label:'全体', curr: aggregate(curr), prev: aggregate(prev)};
+
+    tabData[tab.id] = {
+      curr: aggregate(curr), prev: aggregate(prev),
+      currOn: aggregate(currOn), prevOn: aggregate(prevOn),
+      currOff: aggregate(currOff), prevOff: aggregate(prevOff),
+      histCurr: histBins(curr), histPrev: histBins(prev),
+      histCurrOn: histBins(currOn), histPrevOn: histBins(prevOn),
+      histCurrOff: histBins(currOff), histPrevOff: histBins(prevOff),
+      monthData,
+    };
+  });
+
+  return {processed, currSeason, prevSeason, allTabs, tabData, seasons};
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+let charts = {};
+let activeTab = '全社';
+
+function renderDashboard() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('page-tabs').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('header-period').textContent =
+    `前年: ${APP.prevSeason}　/　当年: ${APP.currSeason}`;
+
+  const tabsEl = document.getElementById('page-tabs');
+  tabsEl.innerHTML = APP.allTabs.map(t =>
+    `<button class="page-tab${t.id===activeTab?' active':''}" onclick="switchTab('${t.id}',this)">${t.label}</button>`
+  ).join('');
+
+  renderTab(activeTab);
+}
+
+function switchTab(id, btn) {
+  activeTab = id;
+  document.querySelectorAll('.page-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTab(id);
+}
+
+function renderTab(tabId) {
+  const d = APP.tabData[tabId];
+  if (!d) return;
+
+  Object.values(charts).forEach(c => { try{c.destroy();}catch(e){} });
+  charts = {};
+
+  document.getElementById('dash-content').innerHTML = buildTabHTML(tabId, d);
+
+  initBarChart(d);
+  initHistChart(d, 'all');
+  initDemograph(d);
+  updateSim(130, d);
+
+  renderAnnualTable(d);
+  renderMonthTable(d);
+  renderMonthActualTable(d);
+}
+
+// ═══════════════════════════════════════════════════════
+// HTML BUILDER
+// ═══════════════════════════════════════════════════════
+function buildTabHTML(tabId, d) {
+  const c = d.curr, p = d.prev;
+  const prevMedian = p.medianAch || 1;
+  const currMedian = c.medianAch || 1;
+  const diffPt = ((currMedian - prevMedian)*100).toFixed(1);
+  const diffPtCls = currMedian >= prevMedian ? 'up' : 'down';
+  const diffPtArrow = currMedian >= prevMedian ? '▲' : '▼';
+
+  const diffDel = p.deliveries - c.deliveries;
+  const diffDelCls = c.deliveries <= p.deliveries ? 'up' : 'down';
+  const diffDelArrow = c.deliveries <= p.deliveries ? '▼' : '▲';
+
+  const diffVol = c.avgVol - p.avgVol;
+  const diffVolCls = c.avgVol >= p.avgVol ? 'up' : 'down';
+  const diffVolArrow = c.avgVol >= p.avgVol ? '▲' : '▼';
+
+  const diffInt = c.interval - p.interval;
+  const diffIntCls = c.interval >= p.interval ? 'up' : 'down';
+  const diffIntArrow = c.interval >= p.interval ? '▲' : '▼';
+
+  return `
+<div class="summary-block">
+  <div class="sb-header"><span class="sb-tag tag-actual">当年実績</span><span class="sb-title">${APP.currSeason} 実績サマリー</span></div>
+  <div class="sb-body">
+    <div class="sb-kpi"><div class="kl">しきい値配送達成率 中央値</div><div class="kv">${(currMedian*100).toFixed(1)}<span class="ku">%</span></div><div class="kd ${diffPtCls}">前シーズン比 ${diffPtArrow} ${Math.abs(diffPt)}pt</div></div>
+    <div class="sb-kpi"><div class="kl">配送回数</div><div class="kv">${c.deliveries.toLocaleString()}<span class="ku">回</span></div><div class="kd ${diffDelCls}">前シーズン比 ${diffDelArrow} ${Math.abs(diffDel)}回</div></div>
+    <div class="sb-kpi"><div class="kl">平均給油量</div><div class="kv">${c.avgVol.toFixed(1)}<span class="ku">L/回</span></div><div class="kd ${diffVolCls}">前シーズン比 ${diffVolArrow} ${Math.abs(diffVol).toFixed(1)}L</div></div>
+    <div class="sb-kpi"><div class="kl">平均配送間隔</div><div class="kv">${c.interval.toFixed(1)}<span class="ku">日</span></div><div class="kd ${diffIntCls}">前シーズン比 ${diffIntArrow} ${Math.abs(diffInt).toFixed(1)}日</div></div>
+  </div>
+  <div class="sb-note">※ 容量以上の追加配送・マイナス給油除く　／　平均しきい値率 ${(c.threshRate*100).toFixed(1)}%　／　グラフ傾き ${(c.slope*100).toFixed(3)}%/日</div>
+</div>
+
+<div class="chart-grid">
+  <div class="card" style="margin-bottom:0">
+    <div class="ch">
+      <div><div class="ct">センサー別 実績比較</div><div class="cs">センサー有/無/ALL × 当年/前年</div></div>
+      <div style="display:flex;gap:3px">
+        <button class="btn on" onclick="setBarMetric('cd',this)">配送回数</button>
+        <button class="btn" onclick="setBarMetric('av',this)">平均給油量</button>
+        <button class="btn" onclick="setBarMetric('ir',this)">給油時在庫率</button>
+        <button class="btn" onclick="setBarMetric('md',this)">達成率中央値</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="bar-chart"></canvas></div>
+  </div>
+  <div class="card" style="margin-bottom:0">
+    <div class="ch">
+      <div><div class="ct">配送効率の達成状況</div><div class="cs">しきい値配送達成率の分布（100%超＝高効率配送）</div></div>
+      <div style="display:flex;gap:3px">
+        <button class="btn on" id="hist-btn-all" onclick="setHistSensor('all',this)">ALL</button>
+        <button class="btn" id="hist-btn-on" onclick="setHistSensor('on',this)">センサー有</button>
+        <button class="btn" id="hist-btn-off" onclick="setHistSensor('off',this)">センサー無</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="hist-chart"></canvas></div>
+  </div>
+</div>
+
+<div class="tbl-wrap">
+  <div class="tbl-hd">年間サマリー — センサー有無別</div>
+  <div style="overflow-x:auto"><table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="vertical-align:middle">センサー</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">配送回数</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">総給油量 (L)</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">平均給油量 (L)</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">給油時在庫率</th>
+        <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">達成率 中央値</th>
+      </tr>
+      <tr>
+        <th>当年</th><th>前年</th><th>前年比</th>
+        <th>当年</th><th>前年</th><th>前年比</th>
+        <th>当年</th><th>前年</th><th>前年比</th>
+        <th>当年</th><th>前年</th><th>前年比</th>
+        <th>当年</th><th>前年</th><th>前年比</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-annual"></tbody>
+  </table></div>
+</div>
+
+<div class="tbl-wrap">
+  <div class="tbl-hd">
+    月別データサマリー
+    <div style="display:flex;gap:3px">
+      <button class="btn on" id="mtab-actual" onclick="switchMonthTab('actual',this)">実績比較</button>
+      <button class="btn" id="mtab-demo" onclick="switchMonthTab('demo',this)">デモグラフ指標</button>
+    </div>
+  </div>
+  <div id="month-actual-body" style="overflow-x:auto"><table>
+    <thead><tr>
+      <th rowspan="2" style="vertical-align:middle">月</th>
+      <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">配送回数</th>
+      <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">総給油量 (L)</th>
+      <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">平均給油量 (L)</th>
+      <th colspan="3" style="text-align:center;border-bottom:1px solid var(--bd)">給油時在庫率</th>
+    </tr><tr>
+      <th>当年</th><th>前年</th><th>前年比</th>
+      <th>当年</th><th>前年</th><th>前年比</th>
+      <th>当年</th><th>前年</th><th>前年比</th>
+      <th>当年</th><th>前年</th><th>前年比</th>
+    </tr></thead>
+    <tbody id="tbody-month-actual"></tbody>
+  </table></div>
+  <div id="month-demo-body" style="overflow-x:auto;display:none"><table>
+    <thead><tr>
+      <th>月</th><th>配送回数（当年）</th><th>配送回数（前年）</th>
+      <th>平均配送間隔</th><th>平均給油量</th><th>給油率中央値</th>
+      <th>傾き（当年）</th><th>傾き（前年）</th><th>傾き前年比</th>
+    </tr></thead>
+    <tbody id="tbody-month-demo"></tbody>
+  </table></div>
+</div>
+
+<div class="summary-block" style="margin-top:20px">
+  <div class="sb-header"><span class="sb-tag tag-sim">シミュレーション</span><span class="sb-title">しきい値達成率を変えた場合の期待効果</span></div>
+  <div class="sb-body">
+    <div class="sb-kpi" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="kl">想定達成率（デモ値の前提）</div>
+      <div style="display:flex;align-items:center;gap:8px;margin:5px 0 3px">
+        <input type="range" id="sim-slider" min="100" max="200" step="5" value="130" style="flex:1;accent-color:var(--cdemo)" oninput="updateSimUI(this.value)">
+        <span id="sim-pct" style="font-family:'DM Mono',monospace;font-size:19px;font-weight:500;color:var(--cdemo);min-width:48px">130%</span>
+      </div>
+      <div class="kd" id="sim-note">= タンク残量 — 以下で給油</div>
+    </div>
+    <div class="sb-kpi"><div class="kl">配送回数 削減効果</div><div class="kv" id="sim-delivery">—</div><div class="kd" id="sim-delivery-sub">—</div></div>
+    <div class="sb-kpi"><div class="kl">平均給油量 改善効果</div><div class="kv" id="sim-vol">—</div><div class="kd" id="sim-vol-sub">—</div></div>
+    <div class="sb-kpi"><div class="kl">平均配送間隔 改善効果</div><div class="kv" id="sim-interval">—</div><div class="kd" id="sim-interval-sub">—</div></div>
+  </div>
+  <div class="sb-note">※ 想定達成率 n% = タンク容量 × (1 − n% × 平均しきい値率${(c.threshRate*100).toFixed(1)}%) の残量以下で給油した場合の試算</div>
+</div>
+
+<div class="controls" style="margin-top:20px">
+  <span class="cl">系列</span>
+  <div class="cg">
+    <button class="btn on" id="btn-ca" onclick="toggleDemo('ca',this)">当年（全体）</button>
+    <button class="btn on" id="btn-cd" onclick="toggleDemo('cd',this)">今年デモ値</button>
+    <button class="btn on" id="btn-pa" onclick="toggleDemo('pa',this)">前年（全体）</button>
+    <button class="btn on" id="btn-pd" onclick="toggleDemo('pd',this)">前年デモ値</button>
+  </div>
+  <div class="sep"></div>
+  <span class="cl">月別</span>
+  <div class="cg" id="month-btns">
+    <button class="btn on" onclick="setMonth('all',this)">全体</button>
+    <button class="btn" onclick="setMonth('oct',this)">10月</button>
+    <button class="btn" onclick="setMonth('nov',this)">11月</button>
+    <button class="btn" onclick="setMonth('dec',this)">12月</button>
+    <button class="btn" onclick="setMonth('jan',this)">1月</button>
+    <button class="btn" onclick="setMonth('feb',this)">2月</button>
+  </div>
+</div>
+<div class="card">
+  <div class="ch">
+    <div><div class="ct">給油消費シミュレーション</div><div class="cs">縦軸：消費率の絶対値 / 破線：しきい値ライン</div></div>
+    <div class="legend">
+      <div class="li"><div class="ll" style="background:var(--curr)"></div><span style="color:var(--curr)">当年</span></div>
+      <div class="li"><div class="ll dash" style="border-color:var(--cdemo)"></div><span style="color:var(--cdemo)">今年デモ値</span></div>
+      <div class="li"><div class="ll" style="background:var(--prev)"></div><span style="color:var(--prev)">前年</span></div>
+      <div class="li"><div class="ll dash" style="border-color:var(--pdemo)"></div><span style="color:var(--pdemo)">前年デモ値</span></div>
+    </div>
+  </div>
+  <div class="chart-wrap-lg"><canvas id="demo-chart"></canvas></div>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// CHART RENDERERS
+// ═══════════════════════════════════════════════════════
+let barMetric = 'cd';
+let histSensorKey = 'all';
+let demoVis = {ca:true,cd:true,pa:true,pd:true};
+let demoCurMonth = 'all';
+let currentTabData = null;
+
+const CHART_OPTS_BASE = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#8892a4',font:{family:'Noto Sans JP',size:11},boxWidth:12}},tooltip:{backgroundColor:'#1e2330',borderColor:'#2a3045',borderWidth:1}},
+  scales:{
+    x:{ticks:{color:'#8892a4',font:{size:11}},grid:{color:'#2a3045'}},
+    y:{ticks:{color:'#8892a4',font:{size:11}},grid:{color:'#2a3045'}}
+  }
+};
+
+function initBarChart(d) {
+  currentTabData = d;
+  barMetric = 'cd';
+  const ctx = document.getElementById('bar-chart');
+  if (!ctx) return;
+  charts.bar = new Chart(ctx.getContext('2d'), {
+    type:'bar', data: buildBarData(d, 'cd'), options: barOpts('cd')
+  });
+}
+
+function buildBarData(d, metric) {
+  const labels = ['センサー有', 'センサー無', 'ALL'];
+  const getVal = (agg, m) => ({
+    cd: agg.deliveries, av: agg.avgVol, ir: agg.avgInv*100, md: agg.medianAch*100
+  }[m] || 0);
+  const currVals = [getVal(d.currOn,metric), getVal(d.currOff,metric), getVal(d.curr,metric)];
+  const prevVals = [getVal(d.prevOn,metric), getVal(d.prevOff,metric), getVal(d.prev,metric)];
+  return {
+    labels,
+    datasets:[
+      {label:'当年',data:currVals,backgroundColor:'rgba(232,64,64,0.75)',borderColor:'#e84040',borderWidth:1,borderRadius:3},
+      {label:'前年',data:prevVals,backgroundColor:'rgba(79,156,249,0.75)',borderColor:'#4f9cf9',borderWidth:1,borderRadius:3},
+    ]
+  };
+}
+
+function barOpts(metric) {
+  const units = {cd:'回',av:'L',ir:'%',md:'%'};
+  const dec   = {cd:0,av:1,ir:1,md:1};
+  return {...CHART_OPTS_BASE,
+    plugins:{...CHART_OPTS_BASE.plugins,tooltip:{...CHART_OPTS_BASE.plugins.tooltip,
+      callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toFixed(dec[metric])}${units[metric]}`}
+    }},
+    scales:{...CHART_OPTS_BASE.scales,y:{...CHART_OPTS_BASE.scales.y,ticks:{...CHART_OPTS_BASE.scales.y.ticks,callback:v=>v.toFixed(dec[metric])+units[metric]}}}
+  };
+}
+
+function setBarMetric(metric, btn) {
+  barMetric = metric;
+  document.querySelectorAll('#dash-content .card:first-of-type .ch .btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if (charts.bar && currentTabData) {
+    charts.bar.data = buildBarData(currentTabData, metric);
+    charts.bar.options = barOpts(metric);
+    charts.bar.update();
+  }
+}
+
+const HIST_BINS_LABELS = ['~19%','~39%','~59%','~79%','~99%','~119%','~139%','~159%','~179%','180%~'];
+
+function initHistChart(d, sensor) {
+  histSensorKey = sensor;
+  const ctx = document.getElementById('hist-chart');
+  if (!ctx) return;
+  charts.hist = new Chart(ctx.getContext('2d'), {
+    type:'bar', data: buildHistData(d, sensor), options: histOpts()
+  });
+}
+
+function buildHistData(d, sensor) {
+  const curr = sensor==='on' ? d.histCurrOn : sensor==='off' ? d.histCurrOff : d.histCurr;
+  const prev = sensor==='on' ? d.histPrevOn : sensor==='off' ? d.histPrevOff : d.histPrev;
+  const mkC = (data,H,S) => {
+    const mx = Math.max(...data);
+    return data.map((v,i)=>{
+      if(v===mx&&v>0) return `hsla(${H},${S+15}%,52%,0.95)`;
+      if(i<5) return `hsla(${H},${S-25}%,55%,0.45)`;
+      return `hsla(${H},${S}%,50%,0.75)`;
+    });
+  };
+  const mkB = (data,H,S) => {
+    const mx = Math.max(...data);
+    return data.map((v,i)=>{
+      if(v===mx&&v>0) return `hsla(${H},${S+15}%,45%,1)`;
+      if(i<5) return `hsla(${H},${S-25}%,45%,0.5)`;
+      return `hsla(${H},${S}%,45%,0.9)`;
+    });
+  };
+  return {
+    labels: HIST_BINS_LABELS,
+    datasets:[
+      {label:'当年',data:curr,backgroundColor:mkC(curr,4,75),borderColor:mkB(curr,4,75),borderWidth:1,borderRadius:2},
+      {label:'前年',data:prev,backgroundColor:mkC(prev,214,75),borderColor:mkB(prev,214,75),borderWidth:1,borderRadius:2},
+    ]
+  };
+}
+
+function histOpts() {
+  return {...CHART_OPTS_BASE,
+    plugins:{...CHART_OPTS_BASE.plugins,
+      tooltip:{...CHART_OPTS_BASE.plugins.tooltip,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}件`}},
+      annotation:{annotations:{thr:{type:'line',xMin:4.5,xMax:4.5,borderColor:'rgba(232,64,64,0.6)',borderWidth:1.5,borderDash:[5,4],
+        label:{display:true,content:'100%以上: 高効率配送',position:'start',color:'rgba(232,64,64,0.8)',font:{size:11},backgroundColor:'rgba(13,15,20,0.7)',padding:{x:6,y:3}}}}}
+    },
+    scales:{...CHART_OPTS_BASE.scales,y:{...CHART_OPTS_BASE.scales.y,title:{display:true,text:'件数',color:'#4a5568',font:{size:11}}}}
+  };
+}
+
+function setHistSensor(sensor, btn) {
+  histSensorKey = sensor;
+  ['all','on','off'].forEach(s=>document.getElementById('hist-btn-'+s)?.classList.remove('on'));
+  btn.classList.add('on');
+  if (charts.hist && currentTabData) {
+    charts.hist.data = buildHistData(currentTabData, sensor);
+    charts.hist.update();
+  }
+}
+
+function initDemograph(d) {
+  const ctx = document.getElementById('demo-chart');
+  if (!ctx) return;
+  demoVis = {ca:true,cd:true,pa:true,pd:true};
+  demoCurMonth = 'all';
+  charts.demo = new Chart(ctx.getContext('2d'), {
+    type:'line', data: buildDemoData(d,'all'), options: demoOpts(d)
+  });
+}
+
+function buildDemoData(d, month) {
+  const c = d.monthData[month]?.curr || d.curr;
+  const p = d.monthData[month]?.prev || d.prev;
+  const cSlope = c.slope || d.curr.slope;
+  const pSlope = p.slope || d.prev.slope;
+  const cMed   = c.medianAch || d.curr.medianAch;
+  const pMed   = p.medianAch || d.prev.medianAch;
+  const simVal = parseFloat(document.getElementById('sim-slider')?.value || 130) / 100;
+  const dates = makeDates('2024-12-01', 62);
+  return {
+    datasets:[
+      {label:'当年',    data:genSeries(dates,cSlope,cMed),  borderColor:'#e84040',borderWidth:2.5,pointRadius:0,tension:0,spanGaps:true,hidden:!demoVis.ca},
+      {label:'今年デモ',data:genSeries(dates,cSlope,simVal),borderColor:'#f5b942',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:0,spanGaps:true,hidden:!demoVis.cd},
+      {label:'前年',    data:genSeries(dates,pSlope,pMed),  borderColor:'#4f9cf9',borderWidth:2.5,pointRadius:0,tension:0,spanGaps:true,hidden:!demoVis.pa},
+      {label:'前年デモ',data:genSeries(dates,pSlope,simVal),borderColor:'#a3c4f0',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:0,spanGaps:true,hidden:!demoVis.pd},
+    ]
+  };
+}
+
+function genSeries(dates, slope, median) {
+  const pts=[]; let val=0;
+  dates.forEach(x=>{
+    val+=slope;
+    if(val>=median){pts.push({x,y:val});pts.push({x,y:0});val=0;}
+    else pts.push({x,y:val});
+  });
+  return pts;
+}
+
+function makeDates(start, days) {
+  const d = new Date(start);
+  return Array.from({length:days},(_,i)=>{const t=new Date(d);t.setDate(d.getDate()+i);return t.toISOString().slice(0,10);});
+}
+
+function demoOpts(d) {
+  const thresh = d.curr.threshRate || 0.514;
+  return {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{backgroundColor:'#1e2330',borderColor:'#2a3045',borderWidth:1,titleColor:'#8892a4',bodyColor:'#e8eaf0',padding:10,
+        callbacks:{label:c=>c.parsed.y===null?null:` ${c.dataset.label}: ${(c.parsed.y*100).toFixed(1)}%`}},
+      annotation:{annotations:{thr:{type:'line',yMin:1,yMax:1,borderColor:'rgba(232,64,64,0.55)',borderWidth:1.5,borderDash:[6,4],
+        label:{display:true,content:`しきい値ライン（100% / 容量比: ${(thresh*100).toFixed(1)}%）`,position:'start',color:'rgba(232,64,64,0.75)',font:{size:11},backgroundColor:'rgba(13,15,20,0.7)',padding:{x:6,y:3}}}}}
+    },
+    scales:{
+      x:{type:'time',time:{unit:'day',displayFormats:{day:'d'}},ticks:{color:'#4a5568',font:{size:11},maxTicksLimit:16},grid:{color:'#1e2330'},title:{display:true,text:'日',color:'#4a5568',font:{size:11}}},
+      y:{reverse:true,min:0,max:2,ticks:{color:'#8892a4',font:{size:11},callback:v=>(v*100).toFixed(0)+'%',stepSize:0.25},grid:{color:'#2a3045'},title:{display:true,text:'消費率（0%=給油直後）',color:'#4a5568',font:{size:11}}}
+    }
+  };
+}
+
+function toggleDemo(key, btn) {
+  demoVis[key] = !demoVis[key];
+  btn.className = 'btn' + (demoVis[key]?' on':'');
+  if (charts.demo && currentTabData) {
+    charts.demo.data = buildDemoData(currentTabData, demoCurMonth);
+    charts.demo.update();
+  }
+}
+
+function setMonth(m, btn) {
+  demoCurMonth = m;
+  document.querySelectorAll('#month-btns .btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if (charts.demo && currentTabData) {
+    charts.demo.data = buildDemoData(currentTabData, m);
+    charts.demo.update();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// TABLE RENDERERS
+// ═══════════════════════════════════════════════════════
+function rc(c, p, invertDown=false) {
+  if(!p||p===0) return '<span style="color:var(--tx3)">—</span>';
+  const r=c/p, increased=r>=1, isGood=invertDown?!increased:increased;
+  return `<span class="${isGood?'up':'down'}">${increased?'▲':'▼'} ${(r*100).toFixed(1)}%</span>`;
+}
+
+function renderAnnualTable(d) {
+  const rows = [
+    {label:'センサー有',dot:'var(--curr)',curr:d.currOn,prev:d.prevOn},
+    {label:'センサー無',dot:'var(--prev)',curr:d.currOff,prev:d.prevOff},
+    {label:'ALL',dot:'#6b7280',curr:d.curr,prev:d.prev},
+  ];
+  const el = document.getElementById('tbody-annual');
+  if (!el) return;
+  el.innerHTML = rows.map(r=>{
+    const c=r.curr, p=r.prev;
+    const fw=r.label==='ALL'?'font-weight:500':'';
+    return `<tr style="${fw}">
+      <td><span class="dot" style="background:${r.dot}"></span>${r.label}</td>
+      <td>${c.deliveries.toLocaleString()}</td><td>${p.deliveries.toLocaleString()}</td><td>${rc(c.deliveries,p.deliveries,true)}</td>
+      <td>${Math.round(c.totalVol).toLocaleString()}</td><td>${Math.round(p.totalVol).toLocaleString()}</td><td>${rc(c.totalVol,p.totalVol)}</td>
+      <td>${c.avgVol.toFixed(1)}</td><td>${p.avgVol.toFixed(1)}</td><td>${rc(c.avgVol,p.avgVol)}</td>
+      <td>${(c.avgInv*100).toFixed(1)}%</td><td>${(p.avgInv*100).toFixed(1)}%</td><td>${rc(c.avgInv,p.avgInv,true)}</td>
+      <td>${(c.medianAch*100).toFixed(1)}%</td><td>${(p.medianAch*100).toFixed(1)}%</td><td>${rc(c.medianAch,p.medianAch)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMonthTable(d) {
+  const order=['10','11','12','01','02','all'];
+  const el=document.getElementById('tbody-month-demo');
+  if(!el) return;
+  el.innerHTML=order.map(k=>{
+    const m=d.monthData[k]; if(!m) return '';
+    const c=m.curr, p=m.prev;
+    const r=c.slope&&p.slope?c.slope/p.slope:1;
+    const isGood=r<1;
+    return`<tr>
+      <td><span class="dot" style="background:${k==='all'?'#6b7280':'var(--curr)'}"></span>${m.label}</td>
+      <td>${c.deliveries.toLocaleString()}</td><td>${p.deliveries.toLocaleString()}</td>
+      <td>${c.interval.toFixed(1)}日</td><td>${c.avgVol.toFixed(1)}L</td>
+      <td>${(c.medianAch*100).toFixed(1)}%</td>
+      <td>${(c.slope*100).toFixed(3)}%/日</td><td>${(p.slope*100).toFixed(3)}%/日</td>
+      <td class="${isGood?'up':'down'}">${r>=1?'▲':'▼'} ${((r-1)*100).toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMonthActualTable(d) {
+  const order=['10','11','12','01','02','all'];
+  const el=document.getElementById('tbody-month-actual');
+  if(!el) return;
+  el.innerHTML=order.map(k=>{
+    const m=d.monthData[k]; if(!m) return '';
+    const c=m.curr, p=m.prev;
+    const fw=k==='all'?'font-weight:500':'';
+    return`<tr style="${fw}">
+      <td>${m.label}</td>
+      <td>${c.deliveries.toLocaleString()}</td><td>${p.deliveries.toLocaleString()}</td><td>${rc(c.deliveries,p.deliveries,true)}</td>
+      <td>${Math.round(c.totalVol).toLocaleString()}</td><td>${Math.round(p.totalVol).toLocaleString()}</td><td>${rc(c.totalVol,p.totalVol)}</td>
+      <td>${c.avgVol.toFixed(1)}</td><td>${p.avgVol.toFixed(1)}</td><td>${rc(c.avgVol,p.avgVol)}</td>
+      <td>${(c.avgInv*100).toFixed(1)}%</td><td>${(p.avgInv*100).toFixed(1)}%</td><td>${rc(c.avgInv,p.avgInv,true)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function switchMonthTab(tab, btn) {
+  document.querySelectorAll('#mtab-actual,#mtab-demo').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('month-actual-body').style.display = tab==='actual'?'':'none';
+  document.getElementById('month-demo-body').style.display   = tab==='demo'?'':'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// SIMULATION
+// ═══════════════════════════════════════════════════════
+function updateSimUI(pctVal) {
+  if (currentTabData) updateSim(pctVal, currentTabData);
+}
+
+function updateSim(pctVal, d) {
+  const n = pctVal/100;
+  const c = d.curr;
+  const simSlider = document.getElementById('sim-slider');
+  const simPct    = document.getElementById('sim-pct');
+  const simNote   = document.getElementById('sim-note');
+  if (simSlider) simSlider.value = pctVal;
+  if (simPct)    simPct.textContent = pctVal+'%';
+
+  const tankRemain = (1 - n * c.threshRate) * 100;
+  if (simNote) simNote.textContent = `= タンク残量 ${tankRemain.toFixed(1)}% 以下で給油`;
+
+  const demoInterval  = n / c.slope;
+  const demoDelivery  = c.customers * c.days / demoInterval;
+  const demoVol       = c.totalVol / (c.deliveries * c.medianAch / n);
+  const deltaDelivery = c.deliveries - demoDelivery;
+  const deltaVol      = demoVol - c.avgVol;
+  const deltaInterval = demoInterval - c.interval;
+
+  const dEl=document.getElementById('sim-delivery'); const dSub=document.getElementById('sim-delivery-sub');
+  if(dEl){dEl.className=deltaDelivery>=0?'kv up':'kv down';dEl.innerHTML=`${deltaDelivery>=0?'▼':'▲'} ${Math.abs(deltaDelivery).toFixed(0)}<span class="ku">回${deltaDelivery>=0?'減':'増'}</span>`;}
+  if(dSub) dSub.textContent=`${c.deliveries}回 → ${demoDelivery.toFixed(0)}回`;
+
+  const vEl=document.getElementById('sim-vol'); const vSub=document.getElementById('sim-vol-sub');
+  if(vEl){vEl.className=deltaVol>=0?'kv up':'kv down';vEl.innerHTML=`${deltaVol>=0?'+':''}${deltaVol.toFixed(1)}<span class="ku">L/回</span>`;}
+  if(vSub) vSub.textContent=`${c.avgVol.toFixed(1)}L → ${demoVol.toFixed(1)}L`;
+
+  const iEl=document.getElementById('sim-interval'); const iSub=document.getElementById('sim-interval-sub');
+  if(iEl){iEl.className=deltaInterval>=0?'kv up':'kv down';iEl.innerHTML=`${deltaInterval>=0?'+':''}${deltaInterval.toFixed(1)}<span class="ku">日</span>`;}
+  if(iSub) iSub.textContent=`${c.interval.toFixed(1)}日 → ${demoInterval.toFixed(1)}日`;
+
+  if(charts.demo && currentTabData) {
+    charts.demo.data = buildDemoData(currentTabData, demoCurMonth);
+    charts.demo.update('none');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════════════════════════
+function loadDemo() {
+  APP = buildDemoAppData();
+  renderDashboard();
+}
+
+function buildDemoAppData() {
+  const mkAgg = (d) => ({
+    deliveries:d.cd, totalVol:d.tv, avgVol:d.av, avgInv:d.ir,
+    medianAch:d.md, customers:d.cu, threshRate:d.tr, interval:d.iv,
+    slope:d.sl, days:151
+  });
+
+  const allTabs = [
+    {id:'全社',label:'全社'},
+    {id:'株式会社SHIMARS',label:'SHIMARS'},
+    {id:'未登録',label:'未登録'},
+    {id:'area_新型センサー',label:'新型センサー'},
+    {id:'area_配送エリア',label:'配送エリア'},
+    {id:'area_未登録',label:'未登録(エリア)'},
+  ];
+
+  const mkMonth = (cd,pd,tv,pv,av,pa,ir,pi,md,pm,sl,ps,iv,pi2) => ({
+    curr:{deliveries:cd,totalVol:tv,avgVol:av,avgInv:ir,medianAch:md,customers:Math.round(cd*0.85),threshRate:0.514,interval:iv,slope:sl,days:31},
+    prev:{deliveries:pd,totalVol:pv,avgVol:pa,avgInv:pi,medianAch:pm,customers:Math.round(pd*0.85),threshRate:0.514,interval:pi2,slope:ps,days:31}
+  });
+
+  const buildTab = (curr, prev, currOn, prevOn, currOff, prevOff, months) => ({
+    curr:mkAgg(curr), prev:mkAgg(prev),
+    currOn:mkAgg(currOn), prevOn:mkAgg(prevOn),
+    currOff:mkAgg(currOff), prevOff:mkAgg(prevOff),
+    histCurr:[10,37,62,78,99,163,226,129,79,78],
+    histPrev:[9,31,57,77,97,158,206,178,129,100],
+    histCurrOn:[5,2,8,14,12,86,139,64,26,23],
+    histPrevOn:[4,8,15,18,20,60,108,73,41,22],
+    histCurrOff:[5,35,54,64,87,77,87,65,53,55],
+    histPrevOff:[5,23,42,59,77,98,98,105,88,78],
+    monthData: months,
+  });
+
+  const C_ALL={cd:1007,tv:111472,av:110.7,ir:0.427,md:1.2258,cu:233,tr:0.514,iv:51.1,sl:0.02397};
+  const P_ALL={cd:1073,tv:123465,av:115.1,ir:0.391,md:1.2894,cu:233,tr:0.514,iv:47.9,sl:0.02687};
+  const C_ON ={cd:396, tv:54683, av:138.1,ir:0.417,md:1.2933,cu:105,tr:0.549,iv:54.2,sl:0.02397};
+  const P_ON ={cd:374, tv:54211, av:144.9,ir:0.419,md:1.3063,cu:108,tr:0.543,iv:47.9,sl:0.02566};
+  const C_OFF={cd:611, tv:56789, av:92.9, ir:0.433,md:1.1317,cu:128,tr:0.495,iv:44.5,sl:0.02687};
+  const P_OFF={cd:699, tv:69254, av:99.1, ir:0.375,md:1.2889,cu:125,tr:0.495,iv:47.9,sl:0.02914};
+
+  const months_all = {
+    '10': mkMonth(120,107,10914,8292,90.9,77.5,0.512,0.530,1.0606,0.852,0.02566,0.01961,41.3,43.5),
+    '11': mkMonth(191,160,18538,15352,97.1,95.9,0.465,0.459,1.1475,1.136,0.03163,0.02914,36.3,39.0),
+    '12': mkMonth(319,284,35074,33382,109.9,117.5,0.421,0.374,1.2333,1.295,0.04230,0.04022,29.2,32.2),
+    '01': mkMonth(286,272,34291,34052,119.9,125.2,0.369,0.352,1.3068,1.346,0.04368,0.04325,29.9,31.1),
+    '02': mkMonth(91, 250,12655,32387,139.1,129.5,0.432,0.349,1.2821,1.346,0.05708,0.04292,22.5,31.4),
+    'all':mkMonth(1007,1073,111472,123465,110.7,115.1,0.427,0.391,1.2258,1.289,0.02397,0.02687,51.1,47.9),
+  };
+
+  const tabData = {
+    '全社': buildTab(C_ALL,P_ALL,C_ON,P_ON,C_OFF,P_OFF,months_all),
+    '株式会社SHIMARS': buildTab(
+      {cd:442,tv:59024,av:133.5,ir:0.422,md:1.2933,cu:118,tr:0.514,iv:53.8,sl:0.024},
+      {cd:418,tv:58036,av:138.8,ir:0.421,md:1.3063,cu:115,tr:0.514,iv:47.9,sl:0.027},
+      C_ON,P_ON,
+      {cd:46,tv:4341,av:94.4,ir:0.488,md:0.964,cu:13,tr:0.436,iv:46.2,sl:0.021},
+      {cd:44,tv:3825,av:86.9,ir:0.446,md:1.020,cu:13,tr:0.435,iv:44.2,sl:0.023},
+      months_all
+    ),
+    '未登録': buildTab(
+      {cd:565,tv:52448,av:92.8,ir:0.429,md:1.15,cu:124,tr:0.500,iv:44.7,sl:0.026},
+      {cd:655,tv:65429,av:99.9,ir:0.372,md:1.289,cu:120,tr:0.500,iv:44.7,sl:0.027},
+      {cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},
+      {cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},
+      {cd:565,tv:52448,av:92.8,ir:0.429,md:1.15,cu:124,tr:0.500,iv:44.7,sl:0.026},
+      {cd:655,tv:65429,av:99.9,ir:0.372,md:1.289,cu:120,tr:0.500,iv:44.7,sl:0.027},
+      months_all
+    ),
+    'area_新型センサー': buildTab(C_ON,P_ON,C_ON,P_ON,{cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},{cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},months_all),
+    'area_配送エリア': buildTab(
+      {cd:46,tv:6253,av:135.9,ir:0.422,md:1.352,cu:13,tr:0.546,iv:53.4,sl:0.025},
+      {cd:42,tv:5877,av:139.9,ir:0.380,md:1.306,cu:12,tr:0.544,iv:53.4,sl:0.025},
+      {cd:46,tv:6253,av:135.9,ir:0.422,md:1.352,cu:13,tr:0.546,iv:53.4,sl:0.025},
+      {cd:42,tv:5877,av:139.9,ir:0.380,md:1.306,cu:12,tr:0.544,iv:53.4,sl:0.025},
+      {cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},
+      {cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},
+      months_all
+    ),
+    'area_未登録': buildTab(C_OFF,P_OFF,{cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},{cd:0,tv:0,av:0,ir:0,md:0,cu:0,tr:0.5,iv:0,sl:0},C_OFF,P_OFF,months_all),
+  };
+
+  return {
+    currSeason:'2025.10-26.03期',
+    prevSeason:'2024.10-25.03期',
+    allTabs, tabData,
+    seasons:['2024.10-25.03期','2025.10-26.03期']
+  };
+}
+</script>
+</body>
+</html>
