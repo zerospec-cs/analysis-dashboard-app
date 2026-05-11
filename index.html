@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>給油配送 分析ダッシュボード</title>
+
+<!-- ── 外部ライブラリ ── -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+
+<!-- ── スタイル ── -->
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">ZERO SPEC</div>
+    <div class="auth-title">給油配送 分析ダッシュボード</div>
+    <div class="auth-sub">このツールは社内限定です。<br>会社のGoogleアカウントでログインしてください。</div>
+    <div id="g_id_onload"
+      data-client_id="858573162226-4dou32bf97vp16qk7ietlikivgjhh7qu.apps.googleusercontent.com"
+      data-context="signin"
+      data-ux_mode="popup"
+      data-callback="handleGoogleCredential"
+      data-auto_prompt="false"
+      data-hosted_domain="zero-spec.com">
+    </div>
+    <div class="g_id_signin"
+      data-type="standard"
+      data-shape="rectangular"
+      data-theme="filled_black"
+      data-text="signin_with"
+      data-size="large"
+      data-locale="ja"
+      data-width="320">
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-domain">ログイン可能アカウント: <span>@zero-spec.com</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     HEADER（認証後に表示）
+═══════════════════════════════════════════════════ -->
+<div class="header" id="main-header" style="display:none">
+  <div class="header-left">
+    <div class="header-title">給油配送 分析ダッシュボード</div>
+  </div>
+  <div class="header-right">
+    <div class="user-badge" id="user-badge">
+      <div class="user-avatar-placeholder" id="user-avatar-placeholder"></div>
+      <span class="user-name" id="user-name-display"></span>
+      <button class="btn-logout" onclick="signOut()" title="ログアウト">ログアウト</button>
+    </div>
+    <div id="header-period" style="font-size:11px;color:var(--tx2)"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     UPLOAD SCREEN
+═══════════════════════════════════════════════════ -->
+<div id="upload-screen">
+  <div class="upload-title">ファイルをアップロード</div>
+  <div class="upload-sub">2つのファイルをアップロードして「分析実行」を押すと、グループ・エリア別のダッシュボードを自動生成します。</div>
+  <div class="upload-cards">
+    <label class="upload-card" id="card1">
+      <input type="file" id="file1" accept=".xlsx,.csv" onchange="loadFile(1,this)">
+      <div class="uc-check">✓</div>
+      <div class="uc-num">FILE 01</div>
+      <div class="uc-title">給油情報</div>
+      <div class="uc-desc">顧客番号・配送日・配送量<br>（xlsx / csv）</div>
+      <div class="uc-status uc-wait" id="st1">待機中</div>
+    </label>
+    <label class="upload-card" id="card2">
+      <input type="file" id="file2" accept=".xlsx" onchange="loadFile(2,this)">
+      <div class="uc-check">✓</div>
+      <div class="uc-num">FILE 02</div>
+      <div class="uc-title">顧客情報Excel</div>
+      <div class="uc-desc">「顧客登録」「タンクタイプリスト」<br>シートを含むxlsxファイル</div>
+      <div class="uc-status uc-wait" id="st2">待機中</div>
+    </label>
+  </div>
+  <button class="btn-run" id="btn-run" disabled onclick="runAnalysis()">分析実行</button>
+  <br>
+  <button class="demo-btn" onclick="loadDemo()">デモデータで実行</button>
+</div>
+
+<!-- PAGE TABS -->
+<div id="page-tabs" style="display:none"></div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="dash-content" id="dash-content"></div>
+</div>
+
+<!-- ── アプリスクリプト（依存順に読み込む） ── -->
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/fileLoader.js"></script>
+<script src="js/dataEngine.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
