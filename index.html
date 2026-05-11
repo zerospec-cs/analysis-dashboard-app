@@ -93,6 +93,16 @@
   <button class="demo-btn" onclick="loadDemo()">デモデータで実行</button>
 </div>
 
+<!-- カラム選択モーダル -->
+<div id="col-modal" class="col-modal-overlay" style="display:none">
+  <div class="col-modal-box">
+    <div class="col-modal-title">カラムの対応を確認してください</div>
+    <div class="col-modal-sub">ファイルの列名を分析項目に割り当ててください。自動検出できた項目は事前選択済みです。</div>
+    <div id="col-modal-body"></div>
+    <button id="col-modal-confirm" class="col-modal-btn" onclick="_confirmColSelection()">決定</button>
+  </div>
+</div>
+
 <!-- PAGE TABS -->
 <div id="page-tabs" style="display:none"></div>
 

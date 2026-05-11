@@ -63,10 +63,9 @@ function _processDeliveries(delRows, custMap) {
   const seen = {};
 
   delRows.forEach(r => {
-    const v = Object.values(r);
-    const custId  = String(v[0]).trim();
-    const dateVal = v[1];
-    const delivQty = Number(v[2]) || 0;
+    const custId  = String(r.custId  ?? '').trim();
+    const dateVal = r.date;
+    const delivQty = Number(r.qty) || 0;
     if (!custId || !dateVal) return;
 
     const dateKey = `${custId}_${String(dateVal).slice(0, 10)}`;

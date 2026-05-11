@@ -138,3 +138,16 @@ tr:hover td { background: rgba(79,156,249,.03); }
 .controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .cl { font-size: 11px; color: var(--tx2); letter-spacing: .08em; text-transform: uppercase; }
 .cg { display: flex; gap: 3px; }
+
+/* ── カラム選択モーダル ──────────────────────────────── */
+.col-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 500; display: flex; align-items: center; justify-content: center; }
+.col-modal-box     { background: var(--sf); border: 1px solid var(--bd); border-radius: 14px; padding: 32px 28px; width: 100%; max-width: 420px; }
+.col-modal-title   { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+.col-modal-sub     { font-size: 11px; color: var(--tx2); line-height: 1.7; margin-bottom: 24px; }
+.col-modal-row     { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.col-modal-label   { font-size: 12px; color: var(--tx2); width: 80px; flex-shrink: 0; }
+.col-modal-select  { flex: 1; background: var(--sf2); border: 1px solid var(--bd); border-radius: 6px; color: var(--tx); font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 7px 10px; outline: none; cursor: pointer; }
+.col-modal-select:focus { border-color: var(--curr); }
+.col-modal-btn     { margin-top: 20px; width: 100%; background: var(--curr); color: #fff; border: none; padding: 11px; border-radius: 8px; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .2s; }
+.col-modal-btn:disabled { opacity: .3; cursor: not-allowed; }
+.col-modal-btn:hover:not(:disabled) { opacity: .85; }
